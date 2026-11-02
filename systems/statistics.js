@@ -37,29 +37,34 @@ export class StatisticsSystem extends RegisteredSystem {
     main.remove();
     const dashboard = this.node('section','dashboard terminal-dashboard');
     const panels = this.node('div','terminal-grid');
-    const worldSection = this.node('section','stats-section terminal-pane');
-    worldSection.append(this.node('h2','','Worldometer · Real-time statistics'));
-    worldSection.append(this.node('p','disclaimer','Embedded world population counter: continuously projected from published demographic data, not a direct census measurement.'));
-    const populationCard = this.node('article','stat-card population-card');
-    const frame = this.node('iframe','population-frame');
-    frame.src = 'https://populationclock.org/embed';
-    frame.title = 'Live world population counter';
-    frame.loading = 'lazy';
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups');
-    populationCard.append(frame);
-    populationCard.append(this.node('p','attribution','Population projection: populationclock.org · UN World Population Prospects 2024'));
-    worldSection.append(populationCard);
-    worldSection.append(this.node('p','disclaimer','Other Worldometer categories require separately licensed counter feeds or independently sourced data. No invented live values are displayed.'));
-
-    panels.append(worldSection);
-    const debt = this.node('section','stats-section terminal-pane');
-    debt.append(this.node('h2','','Government debt clocks'));
-    debt.append(this.node('p','disclaimer','Estimated government gross debt in USD, extrapolated from IMF-based baseline figures. Not official second-by-second accounting.'));
-    const debtGrid = this.node('div','stats-grid');debt.append(debtGrid);
-    const source = this.node('p','source');
-    source.append('Data: ',this.link('Global Debt Clock · CC BY 4.0','https://www.global-debt-clock.com/'),' · ',this.link('Methodology','https://www.global-debt-clock.com/methodology/'));
-    debt.append(source);panels.append(debt);
+    const worldSection = this.node('section','stats-section terminal-pane streaming-pane');
+    worldSection.append(this.node('h2','','WORLD DATA STREAM'));
+    const worldFeed = this.node('div','terminal-feed');
+    worldFeed.setAttribute('role','log'); worldFeed.setAttribute('aria-label','World data stream');
+    worldSection.append(worldFeed); panels.append(worldSection);
+    const debt = this.node('section','stats-section terminal-pane streaming-pane');
+    debt.append(this.node('h2','','DEBT CLOCK STREAM'));
+    const debtFeed = this.node('div','terminal-feed');
+    debtFeed.setAttribute('role','log'); debtFeed.setAttribute('aria-label','Government debt estimates');
+    debt.append(debtFeed); panels.append(debt);
+    this.registry.state.worldFeed = worldFeed;
+    this.registry.state.debtFeed = debtFeed;
+    this.registry.state.worldSequence = 0;
+    this.registry.state.worldTopics = [
+      'WORLD / Population, health, environment and energy charts available below',
+      'POPULATION / Global population projection is a model, not a census',
+      'HEALTH / Life expectancy and child mortality datasets: publisher-updated',
+      'ENVIRONMENT / Annual CO₂ emissions: publisher-updated, not a live sensor',
+      'ENERGY / Renewable energy share: latest published research series',
+      'SOCIETY / Internet use statistics: latest published research series',
+      'DATA / Our World in Data interactive charts are available below',
+      'STATUS / Waiting for newly published measurements and datasets'
+    ];
+    this.appendFeed(worldFeed,'SYSTEM / WORLD DATA STREAM INITIALIZED');
+    this.registry.state.worldInterval = setInterval(() => {
+      const topics = this.registry.state.worldTopics;
+      this.appendFeed(worldFeed,topics[this.registry.state.worldSequence++ % topics.length]);
+    },1600);
     const contextPane = this.node('section','stats-section terminal-pane');
     contextPane.append(this.node('h2','','Population & Health'));
     contextPane.append(this.node('p','disclaimer','Publisher-updated interactive charts; not second-by-second measurements.'));
@@ -84,7 +89,7 @@ export class StatisticsSystem extends RegisteredSystem {
     dashboard.append(panels);document.body.append(dashboard);
     const fade = animation.animate(dashboard,[{opacity:0,transform:'translateY(24px)'},{opacity:1,transform:'translateY(0)'}],{duration:1000,easing:'ease-out',fill:'both'});
     if (fade) fade.finished.catch(()=>{});
-    await this.loadDebt(debtGrid);
+    await this.loadDebt(debtFeed);
     this.emit('dashboard-opened');
   }
   embedCharts(container, charts) {
@@ -113,34 +118,40 @@ export class StatisticsSystem extends RegisteredSystem {
     });
     container.append(tabs,viewport);
   }
+  appendFeed(container, message) {
+    if (!container?.isConnected) return;
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 75;
+    const line = this.node('div','feed-line');
+    const time = new Date().toLocaleTimeString('en-GB',{hour12:false});
+    line.append(this.node('span','feed-time','[' + time + ']'),this.node('span','feed-message',message));
+    container.append(line);
+    while (container.childElementCount > 120) container.firstElementChild.remove();
+    if (nearBottom) container.scrollTop = container.scrollHeight;
+  }
   async loadDebt(container) {
     try {
       const response = await fetch('https://www.global-debt-clock.com/data/debt.json');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
-      const keys = ['world','fi','nl','in'];
       const formatter = new Intl.NumberFormat('en-US',{maximumFractionDigits:0});
-      const cards = keys.map(key => {
-        const entry = data[key];
-        if (!entry || !Number.isFinite(entry.base) || !Number.isFinite(entry.rate)) return null;
-        const card = this.node('article','stat-card debt-card');
-        const amount = this.node('strong','debt-value','—');
-        const baseTime = Date.parse(`${entry.baseDate}T00:00:00Z`);
-        const update = () => { amount.textContent = '$' + formatter.format(Math.max(0,entry.base + entry.rate * ((Date.now()-baseTime)/1000))); };
-        card.append(this.node('h3','',`${entry.flag || ''} ${entry.name}`),amount,this.node('p','',`${entry.gdpPct ?? '—'}% of GDP · +$${formatter.format(entry.rate)}/sec (modeled)`));
-        const perCapita = this.node('p','',`Base per person: $${formatter.format(entry.base/entry.pop)}`);
-        card.append(perCapita);
-        container.append(card);update();
-        return update;
-      }).filter(Boolean);
-      this.registry.state.clockUpdates = cards;
-      this.registry.state.interval = setInterval(()=>{for(const update of cards)update();},1000);
-      this.emit('debt-loaded',{count:cards.length});
-    } catch (error) {
-      container.append(this.node('p','disclaimer','Debt data is temporarily unavailable. Open the source for current estimates.'));
-      container.append(this.link('View debt clocks ↗','https://www.global-debt-clock.com/map/'));
+      const countries = ['world','fi','nl','in'].map(key=>data[key]).filter(entry=>entry && Number.isFinite(entry.base) && Number.isFinite(entry.rate));
+      if (!countries.length) throw new Error('No usable debt data');
+      this.appendFeed(container,'SOURCE / Global Debt Clock · IMF-based extrapolated estimates · USD');
+      this.appendFeed(container,'MODEL / base debt + elapsed seconds × estimated rate');
+      const update = () => {
+        const entry = countries[this.registry.state.debtSequence++ % countries.length];
+        const baseTime = Date.parse(entry.baseDate + 'T00:00:00Z');
+        const amount = Math.max(0,entry.base + entry.rate * ((Date.now()-baseTime)/1000));
+        this.appendFeed(container,entry.name.toUpperCase() + ' / $' + formatter.format(amount) + ' · ' + entry.gdpPct + '% GDP · modeled');
+      };
+      this.registry.state.debtSequence = 0;
+      for(let i=0;i<countries.length;i++) update();
+      this.registry.state.interval = setInterval(update,1000);
+      this.emit('debt-loaded',{count:countries.length});
+    } catch(error) {
+      this.appendFeed(container,'SOURCE UNAVAILABLE / ' + String(error));
       this.emit('debt-unavailable',{reason:String(error)});
     }
   }
-  dispose() { if(this.registry.state.interval) clearInterval(this.registry.state.interval); }
+  dispose() { if(this.registry.state.interval) clearInterval(this.registry.state.interval); if(this.registry.state.worldInterval) clearInterval(this.registry.state.worldInterval); }
 }
