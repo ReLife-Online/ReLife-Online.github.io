@@ -64,20 +64,57 @@ export class StatisticsSystem extends RegisteredSystem {
     source.append('Data: ',this.link('Global Debt Clock · CC BY 4.0','https://www.global-debt-clock.com/'),' · ',this.link('Methodology','https://www.global-debt-clock.com/methodology/'));
     debt.append(source);panels.append(debt);
     const contextPane = this.node('section','stats-section terminal-pane');
-    contextPane.append(this.node('h2','','World Indicators'),this.node('p','disclaimer','Population, environment, energy, health and society. The source-specific live metrics are being integrated as independently verified feeds.'));
-    const indicators = this.node('div','terminal-lines');
-    for (const [category, measures] of this.groups) { const line = this.node('div','terminal-line'); line.append(this.node('span','',category),this.node('span','',measures.join(' · '))); indicators.append(line); }
-    contextPane.append(indicators);panels.append(contextPane);
+    contextPane.append(this.node('h2','','Population & Health'));
+    contextPane.append(this.node('p','disclaimer','Publisher-updated interactive charts; not second-by-second measurements.'));
+    this.embedCharts(contextPane,[
+      ['Population growth','population-growth-rate'],
+      ['Life expectancy','life-expectancy'],
+      ['Child mortality','child-mortality'],
+      ['Food supply','daily-per-capita-caloric-supply']
+    ]);
+    panels.append(contextPane);
     const monitorPane = this.node('section','stats-section terminal-pane');
-    monitorPane.append(this.node('h2','','Data Monitor'),this.node('p','disclaimer','Clock values update from published baseline models. External datasets may be temporarily unavailable.'));
-    const monitor = this.node('div','terminal-lines');
-    for (const label of ['Global debt dataset','Clock model','Source review','Display refresh']) { const line=this.node('div','terminal-line'); line.append(this.node('span','',label),this.node('span','',label==='Display refresh'?'1 second':'Active when available')); monitor.append(line); }
-    monitorPane.append(monitor);panels.append(monitorPane);
+    monitorPane.append(this.node('h2','','Environment, Energy & Society'));
+    monitorPane.append(this.node('p','disclaimer','Latest published research series, automatically updated by their provider.'));
+    this.embedCharts(monitorPane,[
+      ['Annual CO₂ emissions','annual-co2-emissions-per-country'],
+      ['CO₂ per person','co2-emissions-per-capita'],
+      ['Renewable energy share','renewable-share-energy'],
+      ['Internet users','number-of-internet-users'],
+      ['Internet usage share','share-of-individuals-using-the-internet']
+    ]);
+    panels.append(monitorPane);
     dashboard.append(panels);document.body.append(dashboard);
     const fade = animation.animate(dashboard,[{opacity:0,transform:'translateY(24px)'},{opacity:1,transform:'translateY(0)'}],{duration:1000,easing:'ease-out',fill:'both'});
     if (fade) fade.finished.catch(()=>{});
     await this.loadDebt(debtGrid);
     this.emit('dashboard-opened');
+  }
+  embedCharts(container, charts) {
+    const tabs = this.node('div','chart-tabs');
+    const viewport = this.node('div','chart-viewport');
+    const frames = [];
+    charts.forEach(([title, slug], index) => {
+      const button = this.node('button','chart-tab',title);
+      button.type = 'button'; button.setAttribute('aria-pressed',String(index===0));
+      const frame = this.node('iframe','chart-frame');
+      frame.title = title + ' · Our World in Data';
+      frame.loading = 'lazy';
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      frame.allow = 'web-share; clipboard-write';
+      frame.dataset.source = 'https://ourworldindata.org/grapher/' + slug + '?tab=chart';
+      frame.hidden = index!==0;
+      if(index===0)frame.src=frame.dataset.source;
+      frames.push(frame); viewport.append(frame);
+      button.addEventListener('click',()=>{
+        frames.forEach((item,i)=>{item.hidden=i!==index;});
+        if(!frame.src)frame.src=frame.dataset.source;
+        for(const child of tabs.children)child.setAttribute('aria-pressed',String(child===button));
+        this.emit('chart-selected',{title});
+      });
+      tabs.append(button);
+    });
+    container.append(tabs,viewport);
   }
   async loadDebt(container) {
     try {
