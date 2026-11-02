@@ -41,7 +41,17 @@ export class StatisticsSystem extends RegisteredSystem {
     worldSection.append(this.node('h2','','WORLD DATA STREAM'));
     const worldFeed = this.node('div','terminal-feed');
     worldFeed.setAttribute('role','log'); worldFeed.setAttribute('aria-label','World data stream');
-    worldSection.append(worldFeed); panels.append(worldSection);
+    worldSection.append(worldFeed);
+    const populationFooter = this.node('div','population-footer');
+    const populationLabel = this.node('span','population-label','WORLD POPULATION / LIVE ESTIMATE');
+    const populationFrame = this.node('iframe','population-inline-frame');
+    populationFrame.src = 'https://populationclock.org/embed';
+    populationFrame.title = 'Live world population estimate';
+    populationFrame.loading = 'eager';
+    populationFrame.referrerPolicy = 'strict-origin-when-cross-origin';
+    populationFrame.setAttribute('sandbox','allow-scripts allow-same-origin');
+    populationFooter.append(populationLabel,populationFrame);
+    worldSection.append(populationFooter); panels.append(worldSection);
     const debt = this.node('section','stats-section terminal-pane streaming-pane');
     debt.append(this.node('h2','','DEBT CLOCK STREAM'));
     const debtFeed = this.node('div','terminal-feed');
