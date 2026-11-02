@@ -35,11 +35,12 @@ export class StatisticsSystem extends RegisteredSystem {
     const transition = immediate ? null : animation.animate(main, [{opacity:1,filter:'blur(0px)',transform:'scale(1)'},{opacity:0,filter:'blur(18px)',transform:'scale(.91)'}], {duration:2200,easing:'ease-in-out',fill:'forwards'});
     if (transition) await transition.finished.catch(() => {});
     main.remove();
-    const dashboard = this.node('section','dashboard');
+    const dashboard = this.node('section','dashboard terminal-dashboard');
     const heading = this.node('header','dashboard-header');
     heading.append(this.node('h1','', 'World Statistics'),this.node('p','','Statistics, projections and source-linked counters'));
     dashboard.append(heading);
-    const worldSection = this.node('section','stats-section');
+    const panels = this.node('div','terminal-grid');
+    const worldSection = this.node('section','stats-section terminal-pane');
     worldSection.append(this.node('h2','','Worldometer · Real-time statistics'));
     worldSection.append(this.node('p','disclaimer','Embedded world population counter: continuously projected from published demographic data, not a direct census measurement.'));
     const populationCard = this.node('article','stat-card population-card');
@@ -54,14 +55,25 @@ export class StatisticsSystem extends RegisteredSystem {
     worldSection.append(populationCard);
     worldSection.append(this.node('p','disclaimer','Other Worldometer categories require separately licensed counter feeds or independently sourced data. No invented live values are displayed.'));
 
-    dashboard.append(worldSection);
-    const debt = this.node('section','stats-section');
+    panels.append(worldSection);
+    const debt = this.node('section','stats-section terminal-pane');
     debt.append(this.node('h2','','Government debt clocks'));
     debt.append(this.node('p','disclaimer','Estimated government gross debt in USD, extrapolated from IMF-based baseline figures. Not official second-by-second accounting.'));
     const debtGrid = this.node('div','stats-grid');debt.append(debtGrid);
     const source = this.node('p','source');
     source.append('Data: ',this.link('Global Debt Clock · CC BY 4.0','https://www.global-debt-clock.com/'),' · ',this.link('Methodology','https://www.global-debt-clock.com/methodology/'));
-    debt.append(source);dashboard.append(debt);document.body.append(dashboard);
+    debt.append(source);panels.append(debt);
+    const contextPane = this.node('section','stats-section terminal-pane');
+    contextPane.append(this.node('h2','','World Indicators'),this.node('p','disclaimer','Population, environment, energy, health and society. The source-specific live metrics are being integrated as independently verified feeds.'));
+    const indicators = this.node('div','terminal-lines');
+    for (const [category, measures] of this.groups) { const line = this.node('div','terminal-line'); line.append(this.node('span','',category),this.node('span','',measures.join(' · '))); indicators.append(line); }
+    contextPane.append(indicators);panels.append(contextPane);
+    const monitorPane = this.node('section','stats-section terminal-pane');
+    monitorPane.append(this.node('h2','','Data Monitor'),this.node('p','disclaimer','Clock values update from published baseline models. External datasets may be temporarily unavailable.'));
+    const monitor = this.node('div','terminal-lines');
+    for (const label of ['Global debt dataset','Clock model','Source review','Display refresh']) { const line=this.node('div','terminal-line'); line.append(this.node('span','',label),this.node('span','',label==='Display refresh'?'1 second':'Active when available')); monitor.append(line); }
+    monitorPane.append(monitor);panels.append(monitorPane);
+    dashboard.append(panels);document.body.append(dashboard);
     const fade = animation.animate(dashboard,[{opacity:0,transform:'translateY(24px)'},{opacity:1,transform:'translateY(0)'}],{duration:1000,easing:'ease-out',fill:'both'});
     if (fade) fade.finished.catch(()=>{});
     await this.loadDebt(debtGrid);
