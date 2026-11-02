@@ -26,12 +26,13 @@ export class StatisticsSystem extends RegisteredSystem {
     a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
     return a;
   }
-  async open() {
+  async open({ immediate = false } = {}) {
     if (this.registry.state.active) return;
     this.registry.state.active = true;
+    if (location.hash !== '#statistics') history.replaceState(null, '', `${location.pathname}${location.search}#statistics`);
     const main = this.runtime.main;
     const animation = this.runtime.registry.systems.animation;
-    const transition = animation.animate(main, [{opacity:1,filter:'blur(0px)',transform:'scale(1)'},{opacity:0,filter:'blur(18px)',transform:'scale(.91)'}], {duration:2200,easing:'ease-in-out',fill:'forwards'});
+    const transition = immediate ? null : animation.animate(main, [{opacity:1,filter:'blur(0px)',transform:'scale(1)'},{opacity:0,filter:'blur(18px)',transform:'scale(.91)'}], {duration:2200,easing:'ease-in-out',fill:'forwards'});
     if (transition) await transition.finished.catch(() => {});
     main.remove();
     const dashboard = this.node('section','dashboard');
