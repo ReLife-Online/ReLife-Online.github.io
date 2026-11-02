@@ -40,18 +40,20 @@ export class StatisticsSystem extends RegisteredSystem {
     dashboard.append(heading);
     const worldSection = this.node('section','stats-section');
     worldSection.append(this.node('h2','','Worldometer · Real-time statistics'));
-    const disclaimer = this.node('p','disclaimer','Worldometer counters are independently modeled estimates. Open each category at the source for its current values; ReLife does not reproduce proprietary counters.');
-    worldSection.append(disclaimer);
-    const groups = this.node('div','stats-grid');
-    for (const [name, metrics] of this.groups) {
-      const card = this.node('article','stat-card');
-      card.append(this.node('h3','',name));
-      const list = this.node('ul','');
-      for (const metric of metrics) list.append(this.node('li','',metric));
-      card.append(list,this.link('View live counters ↗','https://www.worldometers.info/'));
-      groups.append(card);
-    }
-    worldSection.append(groups);dashboard.append(worldSection);
+    worldSection.append(this.node('p','disclaimer','Embedded world population counter: continuously projected from published demographic data, not a direct census measurement.'));
+    const populationCard = this.node('article','stat-card population-card');
+    const frame = this.node('iframe','population-frame');
+    frame.src = 'https://populationclock.org/embed';
+    frame.title = 'Live world population counter';
+    frame.loading = 'lazy';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups');
+    populationCard.append(frame);
+    populationCard.append(this.node('p','attribution','Population projection: populationclock.org · UN World Population Prospects 2024'));
+    worldSection.append(populationCard);
+    worldSection.append(this.node('p','disclaimer','Other Worldometer categories require separately licensed counter feeds or independently sourced data. No invented live values are displayed.'));
+
+    dashboard.append(worldSection);
     const debt = this.node('section','stats-section');
     debt.append(this.node('h2','','Government debt clocks'));
     debt.append(this.node('p','disclaimer','Estimated government gross debt in USD, extrapolated from IMF-based baseline figures. Not official second-by-second accounting.'));
