@@ -36,9 +36,6 @@ export class StatisticsSystem extends RegisteredSystem {
     if (transition) await transition.finished.catch(() => {});
     main.remove();
     const dashboard = this.node('section','dashboard terminal-dashboard');
-    const heading = this.node('header','dashboard-header');
-    heading.append(this.node('h1','', 'World Statistics'),this.node('p','','Statistics, projections and source-linked counters'));
-    dashboard.append(heading);
     const panels = this.node('div','terminal-grid');
     const worldSection = this.node('section','stats-section terminal-pane');
     worldSection.append(this.node('h2','','Worldometer · Real-time statistics'));
