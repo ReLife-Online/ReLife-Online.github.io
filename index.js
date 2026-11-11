@@ -11,7 +11,7 @@ class RepositoryMirror {
   async sync(manual=false){
     if(this.busy)return;this.busy=true;
     try{
-      const response=await fetch(this.gateway+'/api/snapshot',{cache:'no-store'});
+      const response=await fetch(this.gateway+'/api/snapshot'+(manual?'?refresh=1':''),{cache:'no-store'});
       if(!response.ok)throw new Error('Source snapshot unavailable ('+response.status+').');
       const snapshot=await response.json();
       const signature=Object.values(snapshot.sources).map(s=>s.sha).join(':');
@@ -40,3 +40,4 @@ class RepositoryMirror {
   status(text){const label=this.root.querySelector('#mirror-health');if(label)label.textContent=text;}
 }
 new RepositoryMirror();
+
