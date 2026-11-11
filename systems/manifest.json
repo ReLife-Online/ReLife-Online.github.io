@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "ReLife",
+  "sources": {
+    "core": "ReLife-Online/relife-core",
+    "interface": "ReLife-Online/relife-interface"
+  },
+  "theme": {"accent": "#526f35"},
+  "rules": {
+    "generatedInterface": true,
+    "classLifecycle": true,
+    "browserLocalBinaries": true,
+    "executeUploadedCode": false,
+    "pollIntervalSeconds": 60,
+    "snapshotCacheSeconds": 300
+  }
+}
