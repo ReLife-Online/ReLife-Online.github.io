@@ -1,3 +1,4 @@
+const sourceCache=new Map();
 const REPOS={pages:'ReLife-Online/ReLife-Online.github.io',core:'ReLife-Online/relife-core',interface:'ReLife-Online/relife-interface'};
 const FILES={pages:new Set(['index.js','index.R','systems/manifest.json','README.md','AGENTS.md']),core:new Set(['binary.js']),interface:new Set(['workbench.js'])};
 const ENTRY='<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ReLife — Open Source Software Preservation</title><script type="module" src="/index.js"></script></head><body></body></html>';
@@ -5,12 +6,12 @@ const headers={'Access-Control-Allow-Origin':'*','X-Content-Type-Options':'nosni
 class SourceGateway{
  constructor(request,ctx){this.registry={systems:{},functions:{},events:[]};this.request=request;this.ctx=ctx;this.url=new URL(request.url);this.registry.functions.routes={snapshot:()=>this.snapshot()};}
  async cached(url,ttl,kind='text'){
-   const cache=globalThis.caches?.default;const key=new Request(url,{method:'GET'});const hit=cache?await cache.match(key):null;
-   if(hit)return kind==='json'?hit.json():hit.text();
-   const response=await fetch(url,{headers:{'User-Agent':'ReLife-Open-Source-Mirror','Accept':kind==='json'?'application/vnd.github+json':'text/plain'}});
+   const hit=sourceCache.get(url);if(hit&&hit.until>Date.now())return kind==='json'?JSON.parse(hit.text):hit.text;
+   const response=await fetch(url,{headers:{'User-Agent':'ReLife-Open-Source-Mirror','Accept':kind==='json'?'application/vnd.github+json':'text/plain'},cf:{cacheTtl:ttl,cacheEverything:true}});
    if(!response.ok)throw new Error('GitHub source unavailable ('+response.status+').');
    const text=await response.text();if(text.length>1024*1024)throw new Error('Source exceeds module limit.');
-   if(cache){const stored=new Response(text,{headers:{'Cache-Control':'public, max-age='+ttl}});this.ctx.waitUntil(cache.put(key,stored));}
+   if(sourceCache.size>=64)sourceCache.delete(sourceCache.keys().next().value);
+   sourceCache.set(url,{text,until:Date.now()+ttl*1000});
    return kind==='json'?JSON.parse(text):text;
  }
  async head(alias){const ref=await this.cached('https://api.github.com/repos/'+REPOS[alias]+'/git/ref/heads/main',300,'json');const sha=ref.object?.sha;if(!/^[a-f0-9]{40}$/.test(sha||''))throw new Error('Invalid source revision.');return sha;}
