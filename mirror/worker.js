@@ -16,7 +16,7 @@ class SourceGateway{
  async head(alias){const ref=await this.cached('https://api.github.com/repos/'+REPOS[alias]+'/git/ref/heads/main',300,'json');const sha=ref.object?.sha;if(!/^[a-f0-9]{40}$/.test(sha||''))throw new Error('Invalid source revision.');return sha;}
  async source(alias,sha,path){if(!REPOS[alias]||!FILES[alias].has(path)||!/^[a-f0-9]{40}$/.test(sha))throw new Error('Source path is not approved.');return this.cached('https://raw.githubusercontent.com/'+REPOS[alias]+'/'+sha+'/'+path,86400);}
  async snapshot(){const entries=await Promise.all(Object.keys(REPOS).map(async alias=>[alias,{repository:REPOS[alias],sha:await this.head(alias)}]));const sources=Object.fromEntries(entries);const manifest=JSON.parse(await this.source('pages',sources.pages.sha,'systems/manifest.json'));if(manifest.schema!==1||manifest.sources?.core!==REPOS.core||manifest.sources?.interface!==REPOS.interface)throw new Error('Manifest sources are not approved.');return {sources,manifest,checkedAt:new Date().toISOString()};}
- response(body,type='text/plain; charset=utf-8',status=200,cache='no-store'){return new Response(this.request.method==='HEAD'?null:body,{status,headers:{...headers,'Content-Type':type,'Cache-Control':cache}});}
+ response(body,type='text/plain; charset=utf-8',status=200,cache='no-store'){return new Response(this.request.method==='HEAD'||status===204?null:body,{status,headers:{...headers,'Content-Type':type,'Cache-Control':cache}});}
  async route(){
   if(!['GET','HEAD'].includes(this.request.method))return this.response('Method not allowed',undefined,405);
   const path=this.url.pathname;
@@ -29,4 +29,9 @@ class SourceGateway{
   return this.response('Not found',undefined,404);
  }
 }
-export default {async fetch(request,env,ctx){try{return await new SourceGateway(request,ctx).route()}catch(error){return new Response(JSON.stringify({error:'Source synchronization temporarily unavailable',detail:error.message}),{status:503,headers:{...headers,'Content-Type':'application/json','Cache-Control':'no-store'}})}};
+export default {
+ async fetch(request,env,ctx){
+  try{return await new SourceGateway(request,ctx).route();}
+  catch(error){return new Response(JSON.stringify({error:'Source synchronization temporarily unavailable',detail:error.message}),{status:503,headers:{...headers,'Content-Type':'application/json','Cache-Control':'no-store'}});}
+ }
+};
